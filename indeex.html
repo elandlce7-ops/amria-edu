@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شئون الطلبة - العامرية</title>
+<style>
+*{box-sizing:border-box;font-family:Tahoma,Arial}
+body{margin:0;background:#f0f2f5}
+.header{background:#1a5c2a;color:#fff;padding:15px;text-align:center}
+.card{background:#fff;margin:15px;padding:15px;border-radius:10px;box-shadow:0 2px 8px #0001}
+input,select{width:100%;padding:10px;margin:5px 0;border:1px solid #ddd;border-radius:8px;font-size:15px}
+button{background:#1a5c2a;color:#fff;border:0;padding:11px 18px;border-radius:8px;cursor:pointer;font-size:15px;width:100%;margin-top:5px}
+button.blue{background:#1976d2} button.red{background:#c62828} button.gray{background:#666}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{border:1px solid #ddd;padding:8px;text-align:center}
+th{background:#1a5c2a;color:#fff}
+.hidden{display:none}
+.flex{display:flex;gap:8px} .flex button{flex:1}
+.top{display:flex;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+
+<div id="loginPage">
+<div class="header"><h2>🏫 شئون الطلبة</h2><p>إدارة العامرية التعليمية</p></div>
+<div class="card">
+<h3>تسجيل دخول المدرسة</h3>
+<label>اسم المدرسة</label>
+<select id="schoolSelect"></select>
+<label>كلمة المرور</label>
+<input type="password" id="passInput" placeholder="اكتب كلمة المرور">
+<button onclick="login()">دخول</button>
+<p id="loginMsg" style="color:red;text-align:center"></p>
+<p style="font-size:12px;color:#666;text-align:center">تجريبي: أي مدرسة - كلمة المرور 1234<br>مسؤول الإدارة: admin - 123456</p>
+</div>
+</div>
+
+<div id="mainPage" class="hidden">
+<div class="header"><div class="top"><span id="schoolName"></span><button onclick="logout()" style="width:auto;background:#fff;color:#1a5c2a;padding:6px 12px">خروج</button></div><p id="schoolInfo"></p></div>
+
+<div class="card">
+<h3>➕ إضافة طالب جديد</h3>
+<input id="sCode" placeholder="كود الطالب">
+<input id="sName" placeholder="اسم الطالب بالكامل">
+<input id="sNational" placeholder="الرقم القومي (14 رقم)">
+<input id="sBirth" type="date">
+<select id="sGrade"><option>الأول</option><option>الثاني</option><option>الثالث</option><option>الرابع</option><option>الخامس</option><option>السادس</option></select>
+<input id="sClass" placeholder="الفصل مثال: 1/1">
+<select id="sStatus"><option>مقيد</option><option>منقطع</option><option>محول</option><option>مفصول</option></select>
+<input id="sParent" placeholder="اسم ولي الأمر">
+<input id="sPhone" placeholder="تليفون ولي الأمر">
+<input id="sAddr" placeholder="العنوان">
+<button onclick="addStudent()">حفظ الطالب ✅</button>
+</div>
+
+<div class="card">
+<h3>🔍 بحث و تصدير</h3>
+<input id="searchInput" placeholder="ابحث بالاسم أو الكود أو الرقم القومي..." oninput="render()">
+<div class="flex">
+<button class="blue" onclick="exportExcel()">📥 تصدير Excel</button>
+<button class="gray" onclick="printTable()">🖨️ طباعة</button>
+</div>
+<label style="display:block;margin-top:10px;font-size:13px">📂 استيراد ملف Excel (CSV)</label>
+<input type="file" id="fileInput" accept=".csv">
+<p style="font-size:12px;color:#666">الترتيب: كود,اسم,قومي,ميلاد,صف,فصل,حالة,ولي أمر,تليفون,عنوان</p>
+</div>
+
+<div class="card">
+<h3>📋 طلاب المدرسة - <span id="count">0</span> طالب</h3>
+<div style="overflow:auto">
+<table><thead><tr><th>كود</th><th>الاسم</th><th>الرقم القومي</th><th>الصف</th><th>الفصل</th><th>الحالة</th><th>ولي الأمر</th><th>تليفون</th><th>حذف</th></tr></thead><tbody id="tbody"></tbody></table>
+</div>
+<button class="red" onclick="clearAll()">🗑️ مسح كل الطلاب</button>
+</div>
+</div>
+
+<script>
+const schools=[
+"غيث جمعة","العامرية الابتدائية","الحرية الابتدائية","النور الابتدائية","الأمل الابتدائية",
+"عبد المنعم رياض","جمال عبد الناصر","السادات الابتدائية","الزهور الابتدائية","النهضة الابتدائية",
+"السلام الابتدائية","التحرير الابتدائية","الوحدة الابتدائية","الفاروق الابتدائية","عمر بن الخطاب",
+"عثمان بن عفان","علي بن أبي طالب","خالد بن الوليد","صلاح الدين","طارق بن زياد",
+"مدرسة 21","مدرسة 22","مدرسة 23","مدرسة 24","مدرسة 25"
+];
+let currentSchool="", students=[];
+
+const sel=document.getElementById('schoolSelect');
+sel.innerHTML='<option value="">-- اختار المدرسة --</option><option value="admin">مسؤول الإدارة - admin</option>'+schools.map(s=>`<option>${s}</option>`).join('');
+
+function login(){
+  const s=sel.value, p=document.getElementById('passInput').value;
+  if(!s){document.getElementById('loginMsg').innerText='اختار المدرسة الأول';return;}
+  if(s==='admin' && p!=='123456'){document.getElementById('loginMsg').innerText='كلمة المرور غلط';return;}
+  if(s!=='admin' && p!=='1234'){document.getElementById('loginMsg').innerText='كلمة المرور غلط - جرب 1234';return;}
+  currentSchool=s==='admin'?'الإدارة - كل المدارس':s;
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('mainPage').classList.remove('hidden');
+  document.getElementById('schoolName').innerText='أهلاً بيك - 🏫 '+currentSchool;
+  document.getElementById('schoolInfo').innerText='العام الدراسي 2026 / 2027 - إدارة العامرية';
+  loadData(); render();
+}
+function logout(){location.reload();}
+function saveData(){localStorage.setItem('students_'+currentSchool, JSON.stringify(students));}
+function loadData(){students=JSON.parse(localStorage.getItem('students_'+currentSchool)||'[]');}
+function addStudent(){
+  const st={code:document.getElementById('sCode').value, name:document.getElementById('sName').value, national:document.getElementById('sNational').value, birth:document.getElementById('sBirth').value, grade:document.getElementById('sGrade').value, cls:document.getElementById('sClass').value, status:document.getElementById('sStatus').value, parent:document.getElementById('sParent').value, phone:document.getElementById('sPhone').value, addr:document.getElementById('sAddr').value};
+  if(!st.name||!st.code){alert('اكتب كود الطالب والاسم على الأقل');return;}
+  students.push(st); saveData(); render();
+  document.querySelectorAll('#mainPage input').forEach(i=>i.value=''); alert('تم حفظ الطالب ✅');
+}
+function render(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  const list=students.filter(s=>(s.name+s.code+s.national).toLowerCase().includes(q));
+  document.getElementById('count').innerText=list.length;
+  document.getElementById('tbody').innerHTML=list.map((s,i)=>`<tr><td>${s.code}</td><td>${s.name}</td><td>${s.national}</td><td>${s.grade}</td><td>${s.cls}</td><td>${s.status}</td><td>${s.parent}</td><td>${s.phone}</td><td><button class="red" style="padding:5px" onclick="delStudent(${students.indexOf(s)})">حذف</button></td></tr>`).join('') || '<tr><td colspan="9">لا يوجد طلاب - ضيف أول طالب فوق</td></tr>';
+}
+function delStudent(i){if(confirm('تحذف الطالب ده؟')){students.splice(i,1);saveData();render();}}
+function clearAll(){if(confirm('تمسح كل الطلاب؟')){students=[];saveData();render();}}
+function exportExcel(){
+  let csv='كود,اسم,قومي,ميلاد,صف,فصل,حالة,ولي أمر,تليفون,عنوان\n';
+  students.forEach(s=>{csv+=`${s.code},${s.name},${s.national},${s.birth},${s.grade},${s.cls},${s.status},${s.parent},${s.phone},${s.addr}\n`;});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'})); a.download='طلاب_'+currentSchool+'.csv'; a.click();
+}
+function printTable(){window.print();}
+document.getElementById('fileInput').addEventListener('change',function(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=function(){ const lines=r.result.split('\n'); for(let i=1;i<lines.length;i++){ const c=lines[i].split(','); if(c.length<2||!c[1].trim()) continue; students.push({code:c[0],name:c[1],national:c[2]||'',birth:c[3]||'',grade:c[4]||'',cls:c[5]||'',status:c[6]||'مقيد',parent:c[7]||'',phone:c[8]||'',addr:c[9]||''}); } saveData(); render(); alert('تم استيراد الطلاب ✅'); }; r.readAsText(f);
+});
+</script>
+</body>
+</html>
